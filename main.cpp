@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include "time.h"
+#include <unordered_map>
 
 /*
     # This program calculates the desired velocity and angle for an object to land inside the target
@@ -23,57 +25,50 @@
     - θ: Representing the angle of the shooter:
 */
 
-const int MAX_EQUATIONS = 2;
-const double PI = 3.14159265358979323846;
 
-const double TO_DEGREES = 180.0 / PI;
-const int VELOCITY_INDEX = 0;
-const int THETA_INDEX = 1;
-
-void partial_pivot(double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1], int n);
-void back_substitute(double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1], int n, double x[MAX_EQUATIONS]);
-
-int main()
+class SystemSolver
 {
-    const int n = MAX_EQUATIONS;
+public:
+    SystemSolver(double dx, double dy, double v0, double alpha);
+    std::unordered_map<std::string, std::double_t> solveSystem();
 
-    // Constants and variables **TEMP**
-    double dx = 3.5;
-    double dy = 3;
-    double v0 = 15;
-    double alpha = 110;
+private:
+    const int MAX_EQUATIONS = 2;
+    const double PI = 3.14159265358979323846;
+    const double TO_DEGREES = 180.0 / PI;
+    const int VELOCITY_INDEX = 0;
+    const int THETA_INDEX = 1;
 
-    // Coefficient matrix initialization
-    double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1] = {
-        {v0, cos(alpha) * TO_DEGREES, 2 * dx},
-        {v0, sin(alpha) * TO_DEGREES, 2 * dy},
-    };
+    double dx;
+    double dy;
+    double v0;
+    double alpha;
 
-    // Solution vector
-    double x[MAX_EQUATIONS];
+    double coefficients[2][3];
+    double x[2];
 
-    // Partial pivot and back substitution
-    partial_pivot(coefficients, n);
-    back_substitute(coefficients, n, x);
+    void partial_pivot();
+    void back_substitute();
+};
 
-    // Output
-    double velocity = x[VELOCITY_INDEX];
-    double theta = cos(x[THETA_INDEX]) * TO_DEGREES;
+SystemSolver::SystemSolver(double dx, double dy, double v0, double alpha)
+    : dx(dx), dy(dy), v0(v0), alpha(alpha)
+{
+    coefficients[0][0] = v0;
+    coefficients[0][1] = cos(alpha * TO_DEGREES);
 
-    std::cout << "Solution for the system:\n";
-    std::cout << "v = " << velocity << std::endl;
-    std::cout << "θ = " << theta << std::endl;
-
-    return 0;
+    coefficients[1][0] = v0;
+    coefficients[1][1] = sin(alpha * TO_DEGREES);
+    coefficients[1][2] = 2 * dy;
 }
 
-void partial_pivot(double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1], int n)
+void SystemSolver::partial_pivot()
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < MAX_EQUATIONS; i++)
     {
         int pivot_row = i;
 
-        for (int j = i + 1; j < n; j++)
+        for (int j = i + 1; j < MAX_EQUATIONS; j++)
         {
             if (std::abs(coefficients[j][i]) > std::abs(coefficients[pivot_row][i]))
             {
@@ -83,17 +78,17 @@ void partial_pivot(double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1], int n)
 
         if (pivot_row != i)
         {
-            for (int j = i; j <= n; j++)
+            for (int j = i; j <= MAX_EQUATIONS; j++)
             {
                 std::swap(coefficients[i][j], coefficients[pivot_row][j]);
             }
         }
 
-        for (int j = i + 1; j < n; j++)
+        for (int j = i + 1; j < MAX_EQUATIONS; j++)
         {
             double factor = coefficients[j][i] / coefficients[i][i];
 
-            for (int k = i; k <= n; k++)
+            for (int k = i; k <= MAX_EQUATIONS; k++)
             {
                 coefficients[j][k] -= factor * coefficients[i][k];
             }
@@ -101,17 +96,49 @@ void partial_pivot(double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1], int n)
     }
 }
 
-void back_substitute(double coefficients[MAX_EQUATIONS][MAX_EQUATIONS + 1], int n, double x[MAX_EQUATIONS])
+void SystemSolver::back_substitute()
 {
-    for (int i = n - 1; i >= 0; i--)
+    for (int i = MAX_EQUATIONS - 1; i >= 0; i--)
     {
         double sum = 0;
 
-        for (int j = i + 1; j < n; j++)
+        for (int j = i + 1; j < MAX_EQUATIONS; j++)
         {
             sum += coefficients[i][j] * x[j];
         }
 
-        x[i] = (coefficients[i][n] - sum) / coefficients[i][i];
+        x[i] = (coefficients[i][MAX_EQUATIONS] - sum) / coefficients[i][i];
     }
+}
+
+std::unordered_map<std::string, std::double_t> SystemSolver::solveSystem()
+{
+    partial_pivot();
+    back_substitute();
+
+    double velocity = x[VELOCITY_INDEX];
+    double theta = cos(x[THETA_INDEX]) * TO_DEGREES;
+
+    std::cout << "Solution for the system:\n";
+    std::cout << "v = " << velocity << std::endl;
+    std::cout << "θ = " << theta << std::endl;
+    std::cout << "---------------------------------\n";
+
+    std::unordered_map<std::string, std::double_t> results;
+
+    results["v"] = velocity;
+    results["theta"] = theta;
+
+    return results;
+}
+
+int main()
+{
+    SystemSolver solver1(3.5, 3.0, 15.0, 110.0);
+    auto result1 = solver1.solveSystem();
+
+    std::cout << result1["v"] << std::endl;
+    std::cout << result1["theta"] << std::endl;
+    
+    return 0;
 }
